@@ -14,7 +14,7 @@ project(slang VERSION "${SLANG_VERSION}" LANGUAGES)
 #
 # Global CMake options
 #
-cmake_policy(SET CMP0135 OLD)
+# cmake_policy(SET CMP0135 OLD)
 cmake_policy(SET CMP0077 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.25")
@@ -38,7 +38,7 @@ include(CMakeDependentOption)
 include(FetchContent)
 include(GNUInstallDirs)
 
-include(CCacheDebugInfoWorkaround)
+# include(CCacheDebugInfoWorkaround)
 include(CompilerFlags)
 include(Glob)
 include(LLVM)
@@ -89,6 +89,7 @@ option(SLANG_ENABLE_ASAN "Enable ASAN (address sanitizer)")
 
 option(SLANG_ENABLE_PREBUILT_BINARIES "Enable using prebuilt binaries" ON)
 option(SLANG_ENABLE_GFX "Enable gfx targets" ON)
+option(SLANG_ENABLE_RHI "Enable RHI targets" ON)
 option(SLANG_ENABLE_SLANGD "Enable language server target" ON)
 option(SLANG_ENABLE_SLANGC "Enable standalone compiler target" ON)
 option(SLANG_ENABLE_SLANGRT "Enable runtime target" ON)
@@ -547,6 +548,41 @@ if(SLANG_ENABLE_GFX)
         # in the tools directory
         INCLUDE_DIRECTORIES_PUBLIC tools
         FOLDER gfx
+    )
+endif()
+
+if(SLANG_ENABLE_RHI)
+    #
+    # slang-rhi
+    #
+    slang_add_target(
+        tools/rhi
+        SHARED
+        OUTPUT_NAME slang-rhi
+        # USE_FEWER_WARNINGS
+        LINK_WITH_PRIVATE
+            core
+            slang
+            Vulkan-Headers
+            $<$<BOOL:${SLANG_ENABLE_XLIB}>:X11::X11>
+            $<$<BOOL:${SLANG_ENABLE_CUDA}>:CUDA::cuda_driver>
+        LINK_WITH_FRAMEWORK
+            Cocoa
+            QuartzCore
+        EXTRA_COMPILE_DEFINITIONS_PRIVATE
+            $<$<BOOL:${SLANG_ENABLE_CUDA}>:RHI_ENABLE_CUDA>
+            $<$<BOOL:${SLANG_ENABLE_OPTIX}>:RHI_OPTIX>
+            $<$<BOOL:${SLANG_ENABLE_NVAPI}>:RHI_NVAPI>
+            $<$<BOOL:${SLANG_ENABLE_XLIB}>:RHI_ENABLE_XLIB>
+        # This is a shared library, so we need to set a preprocessor macro to mark
+        # exported symbols
+        EXPORT_MACRO_PREFIX SLANG_RHI
+        # slang-rhi is in this directory, anything which depends on rhi should include
+        # this
+        INCLUDE_DIRECTORIES_PUBLIC .
+        # REQUIRES copy-gfx-slang-modules
+        INSTALL
+        FOLDER rhi
     )
 endif()
 
