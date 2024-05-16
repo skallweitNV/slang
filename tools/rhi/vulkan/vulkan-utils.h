@@ -12,6 +12,14 @@ VkFilter translateFilter(TextureFilteringMode mode);
 VkSamplerMipmapMode translateSamplerMipmapMode(TextureFilteringMode mode);
 VkSamplerAddressMode translateSamplerAddressMode(TextureAddressingMode mode);
 VkCompareOp translateCompareOp(ComparisonFunc func);
+VkSamplerReductionMode translateSamplerReductionMode(TextureReductionOp op);
+
+template<typename A, typename B>
+void appendStruct(A& head, B& item)
+{
+    item.pNext = head.pNext;
+    head.pNext = &item;
+}
 
 } // namespace slang::rhi::vulkan::utils
 

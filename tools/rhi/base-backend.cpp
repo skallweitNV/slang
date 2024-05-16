@@ -16,6 +16,19 @@ ISlangUnknown* SamplerBase::getInterface(const Slang::Guid& guid)
 }
 
 // ----------------------------------------------------------------------------
+// DeviceBase
+// ----------------------------------------------------------------------------
+
+ISlangUnknown* DeviceBase::getInterface(const Slang::Guid& guid)
+{
+    if (guid == ISlangUnknown::getTypeGuid() || guid == IAdapter::getTypeGuid())
+    {
+        return this;
+    }
+    return nullptr;
+}
+
+// ----------------------------------------------------------------------------
 // AdapterBase
 // ----------------------------------------------------------------------------
 

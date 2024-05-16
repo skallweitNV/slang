@@ -1,7 +1,11 @@
 #pragma once
 
-#include "slang-rhi.h"
+// This needs to be included first, as it includes the Vulkan headers
+// and sets the appropriate defines for each platform.
 #include "vulkan-api.h"
+
+#define SLANG_RHI_VULKAN
+#include "slang-rhi.h"
 #include "../base-backend.h"
 
 #include "core/slang-com-object.h"
@@ -9,6 +13,19 @@
 namespace slang::rhi::vulkan {
 
 class Device;
+
+struct VulkanContext
+{
+    VkInstance vkInstance = VK_NULL_HANDLE;
+    VkPhysicalDevice vkPhysicalDevice = VK_NULL_HANDLE;
+    VkDevice vkDevice = VK_NULL_HANDLE;
+
+    VkAllocationCallbacks* vkAllocator = nullptr;
+
+    VkPhysicalDeviceProperties physicalDeviceProperties;
+    VkPhysicalDeviceFeatures physicalDeviceFeatures;
+    VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
+};
 
 // ----------------------------------------------------------------------------
 // Sampler
@@ -32,19 +49,21 @@ public:
 // Device
 // ----------------------------------------------------------------------------
 
-class Device : public IDevice, public Slang::ComObject
+class Device : public DeviceBase
 {
 public:
-    SLANG_COM_OBJECT_IUNKNOWN_ALL
+    using Base = DeviceBase;
 
-    ISlangUnknown* getInterface(const Slang::Guid& guid) { return nullptr; }
+    virtual ~Device() { destroy(); }
 
-    Result init(const DeviceDesc& desc);
+    Result init(const DeviceDesc& desc, IAdapter* adapter);
+    void destroy();
 
     virtual SLANG_NO_THROW Result SLANG_MCALL createSampler(const SamplerDesc& desc, ISampler** outSampler) override;
 
     VulkanApi api;
-    VkDevice vkDevice = VK_NULL_HANDLE;
+    VulkanContext ctx;
+    // VkDevice vkDevice = VK_NULL_HANDLE;
     VkAllocationCallbacks* vkAllocator = nullptr;
 };
 
@@ -63,7 +82,7 @@ class Factory : public FactoryBase
 public:
     Result init();
 
-    virtual Result SLANG_MCALL createDevice(const DeviceDesc* desc, IAdapter* adapter, IDevice** outDevice) override;
+    virtual Result SLANG_MCALL createDevice(const DeviceDesc& desc, IAdapter* adapter, IDevice** outDevice) override;
 };
 
 inline Result createFactory(IFactory** outFactory)

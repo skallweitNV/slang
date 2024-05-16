@@ -354,6 +354,11 @@ struct VulkanExtendedFeatureProperties
     VkPhysicalDeviceVulkan12Features vulkan12Features = {
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES
     };
+
+    // Custom border color features.
+    VkPhysicalDeviceCustomBorderColorFeaturesEXT customBorderColorFeatures = {
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT
+    };
 };
 
 // ----------------------------------------------------------------------------

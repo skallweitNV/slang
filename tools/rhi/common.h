@@ -2,12 +2,41 @@
 
 #include "core/slang-com-object.h"
 #include "core/slang-list.h"
+#include "core/slang-math.h"
 
 namespace slang::rhi {
 
 using Slang::RefPtr;
 using Slang::ComObject;
 using Slang::List;
+using Slang::Math;
+
+template<typename To, typename From>
+To checked_cast(From from)
+{
+    static_assert(!std::is_same_v<To, From>, "redundant checked_cast");
+    assert(from == nullptr || dynamic_cast<To>(from) != nullptr);
+    return static_cast<To>(from);
+}
+
+/// All descriptor structs start with a StructHeader, containing the struct type
+/// and a pointer to the next struct, forming a linked list of structs.
+/// This function iterates through the list and returns the first struct of the given type, or nullptr.
+template<typename T>
+const T* findStructInChain(void* next)
+{
+    StructType structType = T().structType;
+    while (next)
+    {
+        StructHeader* header = (StructHeader*)next;
+        if (header->structType == structType)
+        {
+            return (const T*)next;
+        }
+        next = header->next;
+    }
+    return nullptr;
+}
 
 template<size_t N>
 void copyString(char(&dst)[N], const char* src)

@@ -4,7 +4,7 @@ namespace slang::rhi::vulkan::utils {
 
 Result handleError(VkResult result)
 {
-    assert(!"Vulkan error");
+    // assert(!"Vulkan error");
     return (result == VK_SUCCESS) ? SLANG_OK : SLANG_FAIL;
 }
 
@@ -75,6 +75,19 @@ VkCompareOp translateCompareOp(ComparisonFunc func)
         return VK_COMPARE_OP_ALWAYS;
     default:
         return  VkCompareOp(0);
+    }
+}
+
+VkSamplerReductionMode translateSamplerReductionMode(TextureReductionOp op)
+{
+    switch (op)
+    {
+    case TextureReductionOp::Minimum:
+        return VK_SAMPLER_REDUCTION_MODE_MIN;
+    case TextureReductionOp::Maximum:
+        return VK_SAMPLER_REDUCTION_MODE_MAX;
+    default:
+        return VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE;
     }
 }
 

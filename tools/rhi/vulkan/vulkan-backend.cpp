@@ -1,5 +1,6 @@
 #include "vulkan-backend.h"
 #include "vulkan-utils.h"
+#include "../validation/validation.h"
 
 namespace slang::rhi::vulkan {
 
@@ -42,7 +43,13 @@ inline Result enumerateAdapters(List<RefPtr<AdapterBase>>& outAdapters)
             VkInstanceCreateInfo createInfo = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
             const char* enabledExtensionNames[] = {
                 VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
+#if SLANG_APPLE_FAMILY
+                VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
+#endif
             };
+#if SLANG_APPLE_FAMILY
+            createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
             createInfo.enabledExtensionCount = SLANG_COUNT_OF(enabledExtensionNames);
             createInfo.ppEnabledExtensionNames = &enabledExtensionNames[0];
             SLANG_VK_RETURN_ON_FAIL(api.vkCreateInstance(&createInfo, nullptr, &instance));
@@ -72,6 +79,7 @@ inline Result enumerateAdapters(List<RefPtr<AdapterBase>>& outAdapters)
                 info.vendorID = props.vendorID;
                 info.deviceID = props.deviceID;
                 info.luid = getAdapterLUID(api, physicalDevice);
+                info.isSoftware = useSoftware != 0;
 
                 outAdapters.add(adapter);
             }
@@ -86,13 +94,26 @@ inline Result enumerateAdapters(List<RefPtr<AdapterBase>>& outAdapters)
 
 Result Factory::init()
 {
-    SLANG_RETURN_ON_FAIL(enumerateAdapters(adapters));
+    enumerateAdapters(adapters);
     return SLANG_OK;
 }
 
-Result Factory::createDevice(const DeviceDesc* desc, IAdapter* adapter, IDevice** outDevice)
+Result Factory::createDevice(const DeviceDesc& desc, IAdapter* adapter, IDevice** outDevice)
 {
-    return SLANG_E_NOT_IMPLEMENTED;
+    if (adapter == nullptr && adapters.getCount() > 0)
+        adapter = adapters[0].get();
+
+    RefPtr<Device> device = new Device();
+    SLANG_RETURN_ON_FAIL(device->init(desc, adapter));
+    if (desc.enableValidationLayer)
+    {
+        RefPtr<validation::Device> validator = new validation::Device();
+        validator->inner = device;
+        returnComPtr(outDevice, validator);
+        return SLANG_OK;
+    }
+    returnComPtr(outDevice, device);
+    return SLANG_OK;
 }
 
 } // slang::rhi::vulkan

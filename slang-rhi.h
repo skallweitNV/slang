@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SLANG_RHI_H
+#define SLANG_RHI_H
 
 #include <float.h>
 #include <assert.h>
@@ -75,6 +76,12 @@ enum class StructType : uint32_t
     DeviceDesc_1,
     DeviceDescD3D12_1,
     DeviceDescVulkan_1,
+};
+
+struct StructHeader
+{
+    StructType structType;
+    void* next;
 };
 
 // ----------------------------------------------------------------------------
@@ -904,6 +911,8 @@ struct DeviceLimits
 
 struct DeviceInfo
 {
+    GraphicsAPI api;
+
     DeviceType type;
 
     DeviceLimits limits;
@@ -917,12 +926,12 @@ struct DeviceInfo
     uint64_t timestampFrequency = 0;
 };
 
-class IDevice : public IResource
+class IDevice : public ISlangUnknown
 {
 public:
-    virtual SLANG_NO_THROW DeviceInfo& SLANG_MCALL getInfo() = 0;
+    virtual SLANG_NO_THROW const DeviceInfo& SLANG_MCALL getInfo() const = 0;
 
-    virtual SLANG_NO_THROW bool SLANG_MCALL hasFeature(const char* feature) = 0;
+    // virtual SLANG_NO_THROW bool SLANG_MCALL hasFeature(const char* feature) = 0;
 
     /// Creates a new buffer resource.
     virtual SLANG_NO_THROW Result SLANG_MCALL createBuffer(const BufferDesc& desc, IBuffer** outBuffer) = 0;
@@ -935,61 +944,61 @@ public:
 
     virtual SLANG_NO_THROW Result SLANG_MCALL createFence(const FenceDesc& desc, IFence** outFence) = 0;
 
-    virtual SLANG_NO_THROW Result SLANG_MCALL createInputLayout(const InputLayoutDesc& desc, IInputLayout** outInputLayout) = 0;
+    // virtual SLANG_NO_THROW Result SLANG_MCALL createInputLayout(const InputLayoutDesc& desc, IInputLayout** outInputLayout) = 0;
 
-    virtual SLANG_NO_THROW Result SLANG_MCALL createFramebuffer(const FramebufferDesc& desc, IFramebuffer** outFramebuffer) = 0;
+    // virtual SLANG_NO_THROW Result SLANG_MCALL createFramebuffer(const FramebufferDesc& desc, IFramebuffer** outFramebuffer) = 0;
 
-    virtual SLANG_NO_THROW Result SLANG_MCALL createShaderProgram(const ShaderProgramDesc& desc, IShaderProgram** outShaderProgram) = 0;
+    // virtual SLANG_NO_THROW Result SLANG_MCALL createShaderProgram(const ShaderProgramDesc& desc, IShaderProgram** outShaderProgram) = 0;
 
-    virtual SLANG_NO_THROW Result SLANG_MCALL createComputePipeline(const ComputePipelineDesc& desc, IComputePipeline** outPipeline) = 0;
+    // virtual SLANG_NO_THROW Result SLANG_MCALL createComputePipeline(const ComputePipelineDesc& desc, IComputePipeline** outPipeline) = 0;
 
-    virtual SLANG_NO_THROW Result SLANG_MCALL createGraphicsPipeline(const GraphicsPipelineDesc& desc, IGraphicsPipeline** outPipeline) = 0;
+    // virtual SLANG_NO_THROW Result SLANG_MCALL createGraphicsPipeline(const GraphicsPipelineDesc& desc, IGraphicsPipeline** outPipeline) = 0;
 
-    virtual SLANG_NO_THROW Result SLANG_MCALL createCommandList(const CommandListDesc& desc, ICommandList** outCommandList) = 0;
+    // virtual SLANG_NO_THROW Result SLANG_MCALL createCommandList(const CommandListDesc& desc, ICommandList** outCommandList) = 0;
 
 
     // TODO add access mode
-    virtual SLANG_NO_THROW Result SLANG_MCALL mapBuffer(IBuffer* buffer, void** outPointer) = 0;
-    inline void* mapBuffer(IBuffer* buffer)
-    {
-        void* ptr = nullptr;
-        SLANG_RETURN_NULL_ON_FAIL(mapBuffer(buffer, &ptr));
-        return ptr;
-    }
+    // virtual SLANG_NO_THROW Result SLANG_MCALL mapBuffer(IBuffer* buffer, void** outPointer) = 0;
+    // inline void* mapBuffer(IBuffer* buffer)
+    // {
+    //     void* ptr = nullptr;
+    //     SLANG_RETURN_NULL_ON_FAIL(mapBuffer(buffer, &ptr));
+    //     return ptr;
+    // }
 
-    virtual SLANG_NO_THROW Result SLANG_MCALL unmapBuffer(IBuffer* buffer) = 0;
+    // virtual SLANG_NO_THROW Result SLANG_MCALL unmapBuffer(IBuffer* buffer) = 0;
 
 
     // virtual uint64_t executeCommandLists(ICommandList* const* pCommandLists, size_t numCommandLists, CommandQueue executionQueue = CommandQueue::Graphics) = 0;
     // virtual void queueWaitForCommandList(CommandQueue waitQueue, CommandQueue executionQueue, uint64_t instance) = 0;
 
     // Wait until all work on the device has completed.
-    virtual SLANG_NO_THROW Result SLANG_MCALL waitForIdle() = 0;
+    // virtual SLANG_NO_THROW Result SLANG_MCALL waitForIdle() = 0;
 
     // Releases the resources that were referenced in the command lists that have finished executing.
     // IMPORTANT: Call this method at least once per frame.
-    virtual SLANG_NO_THROW void SLANG_MCALL runGarbageCollection() = 0;
+    // virtual SLANG_NO_THROW void SLANG_MCALL runGarbageCollection() = 0;
 
 
     // Convenience methods
-    SLANG_RHI_INLINE_CREATE(IBuffer, BufferDesc, createBuffer)
-    SLANG_RHI_INLINE_CREATE(ITexture, TextureDesc, createTexture)
-    SLANG_RHI_INLINE_CREATE(ISampler, SamplerDesc, createSampler)
-    SLANG_RHI_INLINE_CREATE(IFence, FenceDesc, createFence)
-    SLANG_RHI_INLINE_CREATE(IInputLayout, InputLayoutDesc, createInputLayout)
-    SLANG_RHI_INLINE_CREATE(IFramebuffer, FramebufferDesc, createFramebuffer)
-    SLANG_RHI_INLINE_CREATE(IShaderProgram, ShaderProgramDesc, createShaderProgram)
-    SLANG_RHI_INLINE_CREATE(IComputePipeline, ComputePipelineDesc, createComputePipeline)
-    SLANG_RHI_INLINE_CREATE(IGraphicsPipeline, GraphicsPipelineDesc, createGraphicsPipeline)
-    SLANG_RHI_INLINE_CREATE(ICommandList, CommandListDesc, createCommandList)
+    // SLANG_RHI_INLINE_CREATE(IBuffer, BufferDesc, createBuffer)
+    // SLANG_RHI_INLINE_CREATE(ITexture, TextureDesc, createTexture)
+    // SLANG_RHI_INLINE_CREATE(ISampler, SamplerDesc, createSampler)
+    // SLANG_RHI_INLINE_CREATE(IFence, FenceDesc, createFence)
+    // SLANG_RHI_INLINE_CREATE(IInputLayout, InputLayoutDesc, createInputLayout)
+    // SLANG_RHI_INLINE_CREATE(IFramebuffer, FramebufferDesc, createFramebuffer)
+    // SLANG_RHI_INLINE_CREATE(IShaderProgram, ShaderProgramDesc, createShaderProgram)
+    // SLANG_RHI_INLINE_CREATE(IComputePipeline, ComputePipelineDesc, createComputePipeline)
+    // SLANG_RHI_INLINE_CREATE(IGraphicsPipeline, GraphicsPipelineDesc, createGraphicsPipeline)
+    // SLANG_RHI_INLINE_CREATE(ICommandList, CommandListDesc, createCommandList)
 
-    inline ComPtr<IInputLayout> createInputLayout(const InputAttributeDesc* attributes, Count attributeCount)
-    {
-        InputLayoutDesc desc;
-        desc.attributes = attributes;
-        desc.attributeCount = attributeCount;
-        return createInputLayout(desc);
-    }
+    // inline ComPtr<IInputLayout> createInputLayout(const InputAttributeDesc* attributes, Count attributeCount)
+    // {
+    //     InputLayoutDesc desc;
+    //     desc.attributes = attributes;
+    //     desc.attributeCount = attributeCount;
+    //     return createInputLayout(desc);
+    // }
 };
 
 // ----------------------------------------------------------------------------
@@ -1023,6 +1032,9 @@ struct AdapterInfo
 
     /// Logically unique identifier of the adapter.
     AdapterLUID luid;
+
+    /// True if this is a software adapter.
+    bool isSoftware;
 };
 
 
@@ -1063,7 +1075,16 @@ public:
 
     virtual Result SLANG_MCALL enumAdapter(Index index, IAdapter** outAdapter) = 0;
 
-    virtual Result SLANG_MCALL createDevice(const DeviceDesc* desc, IAdapter* adapter, IDevice** outDevice) = 0;
+    virtual Result SLANG_MCALL createDevice(const DeviceDesc& desc, IAdapter* adapter, IDevice** outDevice) = 0;
+
+    // Convenience methods
+
+    inline ComPtr<IDevice> createDevice(const DeviceDesc& desc, IAdapter* adapter = nullptr)
+    {
+        ComPtr<IDevice> device;
+        SLANG_RETURN_NULL_ON_FAIL(createDevice(desc, adapter, device.writeRef()));
+        return device;
+    }
 };
 
 } // namespace slang::rhi
@@ -1113,8 +1134,12 @@ inline ComPtr<IDevice> createDevice(const DeviceDesc& desc, IAdapter* adapter = 
 
 } // namespace slang::rhi
 
-// #include <d3d12.h>
-#if defined(__d3d12_h__) && defined(__ID3D12Device_FWD_DEFINED__) && defined(__ID3D12CommandQueue_FWD_DEFINED__)
+#endif // SLANG_RHI_H
+
+#ifdef SLANG_RHI_D3D12
+#ifndef SLANG_RHI_H_D3D12
+#define SLANG_RHI_H_D3D12
+#include <d3d12.h>
 namespace slang::rhi {
 struct DeviceDescD3D12
 {
@@ -1135,17 +1160,19 @@ struct DeviceDescD3D12
     uint32_t maxTimerQueries = 256;    
 };
 
-class IDeviceD3D12
+class IDeviceD3D12 : public ISlangUnknown
 {
 public:
     DXGI_FORMAT getDxgiFormat(Format format);
 };
+} // namespace slang::rhi
+#endif // SLANG_RHI_H_D3D12
+#endif // SLANG_RHI_D3D12
 
-}
-#endif
-
-// #include <vulkan.h>
-#ifdef VULKAN_CORE_H_
+#ifdef SLANG_RHI_VULKAN
+#ifndef SLANG_RHI_H_VULKAN
+#define SLANG_RHI_H_VULKAN
+#include <vulkan/vulkan.h>
 namespace slang::rhi {
 struct DeviceDescVulkan
 {
@@ -1174,11 +1201,11 @@ struct DeviceDescVulkan
     uint32_t maxTimerQueries = 256;
 };
 
-class IDeviceVulkan
+class IDeviceVulkan : public ISlangUnknown
 {
 public:
     VkFormat getVkFormat(Format format);
 };
-
-}
-#endif
+} // namespace slang::rhi
+#endif // SLANG_RHI_H_VULKAN
+#endif // SLANG_RHI_VULKAN

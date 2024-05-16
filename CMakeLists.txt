@@ -584,6 +584,15 @@ if(SLANG_ENABLE_RHI)
         INSTALL
         FOLDER rhi
     )
+
+    slang_add_target(
+        tools/rhi-test
+        EXECUTABLE
+        LINK_WITH_PRIVATE
+            rhi Vulkan-Headers
+        INCLUDE_DIRECTORIES_PUBLIC .
+        FOLDER rhi-test
+    )
 endif()
 
 #
