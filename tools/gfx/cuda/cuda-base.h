@@ -3,7 +3,7 @@
 #pragma once
 
 #ifdef GFX_ENABLE_CUDA
-#include <cuda.h>
+#include "cuda-api.h"
 #include "core/slang-basic.h"
 #include "core/slang-blob.h"
 #include "core/slang-std-writers.h"
