@@ -30,6 +30,13 @@ using namespace Slang;
 namespace metal
 {
 
+static bool isCaptureEnabled()
+{
+    StringBuilder builder;
+    PlatformUtil::getEnvironmentVariable(toSlice("MTL_CAPTURE"), builder);
+    return builder.produceString() == "1";
+}
+
 static bool shouldDumpPipeline()
 {
     StringBuilder dumpPipelineSettings;
@@ -39,6 +46,10 @@ static bool shouldDumpPipeline()
 
 DeviceImpl::~DeviceImpl()
 {
+    if (m_captureManager)
+    {
+        m_captureManager->stopCapture();
+    }
 }
 
 Result DeviceImpl::getNativeDeviceHandles(InteropHandles* outHandles)
@@ -79,31 +90,34 @@ SlangResult DeviceImpl::initialize(const Desc& desc)
         "",
         makeArray(slang::PreprocessorMacroDesc{ "__METAL__", "1" }).getView()));
 
-    // TODO: expose via some other means
-    if (captureEnabled())
+    if (isCaptureEnabled())
     {
-        MTL::CaptureManager* captureManager = MTL::CaptureManager::sharedCaptureManager();
-        MTL::CaptureDescriptor* d = MTL::CaptureDescriptor::alloc()->init();
+        m_captureManager = NS::RetainPtr(MTL::CaptureManager::sharedCaptureManager());
+        NS::SharedPtr captureDesc = NS::TransferPtr(MTL::CaptureDescriptor::alloc()->init());
         MTL::CaptureDestination captureDest = MTL::CaptureDestination::CaptureDestinationGPUTraceDocument;
-        if (!captureManager->supportsDestination(MTL::CaptureDestinationGPUTraceDocument))
+        if (!m_captureManager->supportsDestination(captureDest))
         {
             std::cout << "Cannot capture MTL calls to document; ensure that Info.plist exists with 'MetalCaptureEnabled' set to 'true'." << std::endl;
             exit(1);
         }
-        d->setDestination(MTL::CaptureDestinationGPUTraceDocument);
-        d->setCaptureObject(m_device.get());
-        NS::SharedPtr<NS::String> path = MetalUtil::createString("frame.gputrace");
+        captureDesc->setDestination(captureDest);
+        captureDesc->setCaptureObject(m_device.get());
+        static int captureIndex;
+        char captureName[32];
+        snprintf(captureName, sizeof(captureName), "run-%d.gputrace", captureIndex++);
+        NS::SharedPtr<NS::String> path = MetalUtil::createString(captureName);
         NS::SharedPtr<NS::URL> url = NS::TransferPtr(NS::URL::alloc()->initFileURLWithPath(path.get()));
-        d->setOutputURL(url.get());
-        NS::Error* errorCode = NS::Error::alloc();
-        if (!captureManager->startCapture(d, &errorCode))
+        captureDesc->setOutputURL(url.get());
+        NS::Error* error;
+        if (!m_captureManager->startCapture(captureDesc.get(), &error))
         {
-            NS::String* errorString = errorCode->description();
+            NS::String* errorString = error->description();
             std::string estr(errorString->cString(NS::UTF8StringEncoding));
             std::cout << "Start capture failure: " << estr << std::endl;
             exit(1);
         }
     }
+
     return SLANG_OK;
 }
 

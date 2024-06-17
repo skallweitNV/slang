@@ -111,18 +111,6 @@ Result SwapchainImpl::present()
     commandBuffer->commit();
     m_currentDrawable.reset();
     return SLANG_OK;
-
-    // // TODO: Expose controls via some other means
-    // static uint32_t frameCount = 0;
-    // static uint32_t maxFrameCount = 32;
-    // ++frameCount;
-    // if (m_device->captureEnabled() && frameCount == maxFrameCount)
-    // {
-    //     MTL::CaptureManager* captureManager = MTL::CaptureManager::sharedCaptureManager();
-    //     captureManager->stopCapture();
-    //     exit(1);
-    // }
-    // return SLANG_OK;
 }
 
 int SwapchainImpl::acquireNextImage()

@@ -129,13 +129,10 @@ public:
     DeviceInfo m_info;
     String m_adapterName;
 
-    bool captureEnabled() const { return std::getenv("MTL_CAPTURE") != nullptr; }
-
     Desc m_desc;
     NS::SharedPtr<MTL::Device> m_device;
     NS::SharedPtr<MTL::CommandQueue> m_commandQueue;
-
-    //DescriptorSetAllocator descriptorSetAllocator;
+    NS::SharedPtr<MTL::CaptureManager> m_captureManager;
 
     uint32_t m_queueAllocCount;
 
