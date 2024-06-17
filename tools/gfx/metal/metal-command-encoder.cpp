@@ -31,6 +31,7 @@ void PipelineCommandEncoder::init(CommandBufferImpl* commandBuffer)
 void PipelineCommandEncoder::endEncodingImpl()
 {
     m_commandBuffer->endMetalCommandEncoder();
+    m_currentPipeline = nullptr;
 }
 
 Result PipelineCommandEncoder::setPipelineStateImpl(IPipelineState* state, IShaderObject** outRootObject)
@@ -255,7 +256,7 @@ void RenderCommandEncoder::beginPass(IRenderPassLayout* renderPass, IFramebuffer
 
 void RenderCommandEncoder::endEncoding()
 {
-    PipelineCommandEncoder::endEncodingImpl();
+    ResourceCommandEncoder::endEncodingImpl();
 }
 
 Result RenderCommandEncoder::bindPipeline(
