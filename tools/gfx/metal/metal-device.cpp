@@ -22,6 +22,9 @@
 //#include "metal-helper-functions.h"
 
 #include "source/core/slang-platform.h"
+
+#include <sys/time.h>
+
 namespace gfx
 {
 
@@ -102,9 +105,15 @@ SlangResult DeviceImpl::initialize(const Desc& desc)
         }
         captureDesc->setDestination(captureDest);
         captureDesc->setCaptureObject(m_device.get());
-        static int captureIndex;
-        char captureName[32];
-        snprintf(captureName, sizeof(captureName), "run-%d.gputrace", captureIndex++);
+
+        // Generate a capture name based on the current date/time
+        char captureName[128];
+        timeval tv;
+        gettimeofday(&tv, nullptr);
+        char* p = captureName;
+        p += strftime(captureName, sizeof(captureName), "capture-%Y-%m-%d-%H:%M:%S", localtime(&tv.tv_sec));
+        snprintf(p, sizeof(captureName) - (p - captureName), ".%03d.gputrace", int(tv.tv_usec / 1000));
+
         NS::SharedPtr<NS::String> path = MetalUtil::createString(captureName);
         NS::SharedPtr<NS::URL> url = NS::TransferPtr(NS::URL::alloc()->initFileURLWithPath(path.get()));
         captureDesc->setOutputURL(url.get());
