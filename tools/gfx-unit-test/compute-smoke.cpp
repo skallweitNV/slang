@@ -112,4 +112,11 @@ namespace gfx_test
         runTestImpl(computeSmokeTestImpl, unitTestContext, Slang::RenderApiFlag::Vulkan);
     }
 
+    SLANG_UNIT_TEST(computeSmokeMetal)
+    {
+        // TODO: METALTEST
+        SLANG_IGNORE_TEST
+        runTestImpl(computeSmokeTestImpl, unitTestContext, Slang::RenderApiFlag::Metal);
+    }
+
 }

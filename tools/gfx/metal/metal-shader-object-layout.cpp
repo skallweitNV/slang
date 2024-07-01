@@ -1,5 +1,6 @@
 // metal-shader-object-layout.cpp
 #include "metal-shader-object-layout.h"
+#include "metal-device.h"
 
 namespace gfx
 {
@@ -29,6 +30,12 @@ ShaderObjectLayoutImpl::SubObjectRangeStride::SubObjectRangeStride(
     }
 }
 
+ShaderObjectLayoutImpl::Builder::Builder(RendererBase* renderer, slang::ISession* session)
+    : m_renderer(renderer), m_session(session)
+{
+    // m_argumentDescriptors = NS::TransferPtr(NS::Array::alloc()->init());
+}
+
 Result ShaderObjectLayoutImpl::Builder::setElementTypeLayout(slang::TypeLayoutReflection* typeLayout)
 {
     typeLayout = _unwrapParameterGroups(typeLayout, m_containerType);
@@ -40,6 +47,11 @@ Result ShaderObjectLayoutImpl::Builder::setElementTypeLayout(slang::TypeLayoutRe
     {
         m_bufferCount++;
     }
+
+    // if (slang::TypeReflection* pb = m_session->getContainerType(typeLayout->getType(), slang::ContainerType::ParameterBlock))
+    // {
+    //     printf("pb\n");;
+    // }
 
     // Compute the binding ranges that are used to store
     // the logical contents of the object in memory.
@@ -172,6 +184,17 @@ Result ShaderObjectLayoutImpl::Builder::setElementTypeLayout(slang::TypeLayoutRe
                 subObjectLayout.writeRef());
         }
         break;
+        case slang::BindingType::ParameterBlock: {
+            auto elementTypeLayout = slangLeafTypeLayout->getElementTypeLayout();
+            auto name = elementTypeLayout->getName();
+            createForElementType(
+                m_renderer,
+                m_session,
+                elementTypeLayout,
+                subObjectLayout.writeRef());
+
+            break;
+        }
         case slang::BindingType::ExistentialValue:
             // In the case of an interface-type sub-object range, we can only
             // construct a layout if we have static specialization information

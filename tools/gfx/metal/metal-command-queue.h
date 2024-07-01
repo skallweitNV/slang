@@ -24,6 +24,7 @@ public:
     RefPtr<DeviceImpl> m_device;
     Desc m_desc;
     NS::SharedPtr<MTL::CommandQueue> m_commandQueue;
+    List<NS::SharedPtr<MTL::CommandBuffer>> m_pendingCommandBuffers;
 
     struct FenceWaitInfo
     {

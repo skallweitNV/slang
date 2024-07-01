@@ -86,4 +86,11 @@ namespace gfx_test
     {
         runTestImpl(clearTextureTestImpl, unitTestContext, Slang::RenderApiFlag::Vulkan);
     }
+
+    SLANG_UNIT_TEST(clearTextureTestMetal)
+    {
+        // TODO: METALTEST
+        SLANG_IGNORE_TEST
+        runTestImpl(clearTextureTestImpl, unitTestContext, Slang::RenderApiFlag::Metal);
+    }
 }

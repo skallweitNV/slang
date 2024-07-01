@@ -994,7 +994,8 @@ Result RenderTestApp::writeBindingOutput(const String& fileName)
             const size_t bufferSize = bufferDesc.sizeInBytes;
 
             ComPtr<ISlangBlob> blob;
-            if(bufferDesc.memoryType == MemoryType::ReadBack)
+            if(true)
+            // if(bufferDesc.memoryType == MemoryType::ReadBack)
             {
                 // The buffer is already allocated for CPU access, so we can read it back directly.
                 //

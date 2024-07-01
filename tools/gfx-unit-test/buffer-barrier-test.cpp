@@ -135,6 +135,9 @@ namespace gfx_test
         case Slang::RenderApiFlag::Vulkan:
             deviceDesc.deviceType = gfx::DeviceType::Vulkan;
             break;
+        case Slang::RenderApiFlag::Metal:
+            deviceDesc.deviceType = gfx::DeviceType::Metal;
+            break;
         default:
             SLANG_IGNORE_TEST
         }
@@ -156,4 +159,10 @@ namespace gfx_test
         barrierTestAPI(unitTestContext, Slang::RenderApiFlag::Vulkan);
     }
 
+    SLANG_UNIT_TEST(bufferBarrierMetal)
+    {
+        // TODO: METALTEST
+        SLANG_IGNORE_TEST
+        barrierTestAPI(unitTestContext, Slang::RenderApiFlag::Metal);
+    }
 }

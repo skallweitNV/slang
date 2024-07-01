@@ -159,4 +159,10 @@ namespace gfx_test
         runTestImpl(linkTimeConstantTestImpl, unitTestContext, Slang::RenderApiFlag::Vulkan);
     }
 
+    SLANG_UNIT_TEST(linkTimeConstantMetal)
+    {
+        // TODO: METALTEST
+        // runTestImpl(linkTimeConstantTestImpl, unitTestContext, Slang::RenderApiFlag::Metal);
+    }
+
 }

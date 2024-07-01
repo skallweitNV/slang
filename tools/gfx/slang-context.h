@@ -60,6 +60,12 @@ namespace gfx
                 }
             }
 
+            Slang::List<slang::CompilerOptionEntry> compilerOptionEntries;
+            compilerOptionEntries.add({slang::CompilerOptionName::DumpIntermediates, {slang::CompilerOptionValueKind::Int, 1}});
+            compilerOptionEntries.add({slang::CompilerOptionName::DebugInformation, {slang::CompilerOptionValueKind::Int, SLANG_DEBUG_INFO_LEVEL_MAXIMAL}});
+            slangSessionDesc.compilerOptionEntries = compilerOptionEntries.getBuffer();
+            slangSessionDesc.compilerOptionEntryCount = compilerOptionEntries.getCount();
+
             SLANG_RETURN_ON_FAIL(globalSession->createSession(slangSessionDesc, session.writeRef()));
             return SLANG_OK;
         }

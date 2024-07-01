@@ -147,4 +147,10 @@ namespace gfx_test
     {
         runTestImpl(nestedParameterBlockTestImpl, unitTestContext, Slang::RenderApiFlag::Vulkan);
     }
+
+    SLANG_UNIT_TEST(nestedParameterBlockTestMetal)
+    {
+        // TODO: METALTEST
+        // runTestImpl(nestedParameterBlockTestImpl, unitTestContext, Slang::RenderApiFlag::Metal);
+    }
 }

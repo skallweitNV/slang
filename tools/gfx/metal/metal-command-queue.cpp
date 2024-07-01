@@ -22,6 +22,7 @@ ICommandQueue* CommandQueueImpl::getInterface(const Guid& guid)
 
 CommandQueueImpl::~CommandQueueImpl()
 {
+    waitOnHost();
 }
 
 void CommandQueueImpl::init(DeviceImpl* device, NS::SharedPtr<MTL::CommandQueue> commandQueue)
@@ -32,7 +33,11 @@ void CommandQueueImpl::init(DeviceImpl* device, NS::SharedPtr<MTL::CommandQueue>
 
 void CommandQueueImpl::waitOnHost()
 {
-    // TODO implement
+    for (const auto& commandBuffer : m_pendingCommandBuffers)
+    {
+        commandBuffer->waitUntilCompleted();
+    }
+    m_pendingCommandBuffers.clear();
 }
 
 Result CommandQueueImpl::getNativeHandle(InteropHandle* outHandle)
@@ -70,6 +75,7 @@ void CommandQueueImpl::queueSubmitImpl(
             commandBuffer->encodeWait(fenceInfo.fence->m_event.get(), fenceInfo.waitValue);
         }
         commandBuffer->commit();
+        m_pendingCommandBuffers.add(NS::RetainPtr(commandBuffer));
         m_pendingWaitFences.clear();
     }
 
@@ -82,6 +88,7 @@ void CommandQueueImpl::queueSubmitImpl(
             cmdBufImpl->m_commandBuffer->encodeSignalEvent(static_cast<FenceImpl*>(fence)->m_event.get(), valueToSignal);
         }
         cmdBufImpl->m_commandBuffer->commit();
+        m_pendingCommandBuffers.add(cmdBufImpl->m_commandBuffer);
     }
 
     // If there are no command buffers to submit, but a fence is provided, signal the fence.
@@ -90,6 +97,7 @@ void CommandQueueImpl::queueSubmitImpl(
         MTL::CommandBuffer* commandBuffer = m_commandQueue->commandBuffer();
         commandBuffer->encodeSignalEvent(static_cast<FenceImpl*>(fence)->m_event.get(), valueToSignal);
         commandBuffer->commit();
+        m_pendingCommandBuffers.add(NS::RetainPtr(commandBuffer));
     }
 }
 

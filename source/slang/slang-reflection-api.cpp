@@ -1829,6 +1829,7 @@ namespace Slang
                     case LayoutResourceKind::DescriptorTableSlot:
                     case LayoutResourceKind::Uniform:
                     case LayoutResourceKind::ConstantBuffer: // for metal
+                    case LayoutResourceKind::MetalArgumentBufferElement: // for metal
                         resInfo = info;
                         break;
                     }

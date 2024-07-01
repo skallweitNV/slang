@@ -21,6 +21,7 @@ private:
 
 public:
     NS::SharedPtr<MTL::CommandQueue> m_commandQueue;
+    List<RefPtr<CommandBufferImpl>> m_commandBuffers;
 
     Result init(const ITransientResourceHeap::Desc& desc, DeviceImpl* device);
     ~TransientResourceHeapImpl();

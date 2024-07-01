@@ -103,9 +103,7 @@ public:
     struct Builder
     {
     public:
-        Builder(RendererBase* renderer, slang::ISession* session)
-            : m_renderer(renderer), m_session(session)
-        {}
+        Builder(RendererBase* renderer, slang::ISession* session);
 
         RendererBase* m_renderer;
         slang::ISession* m_session;
@@ -134,6 +132,10 @@ public:
         /// `StructuredBuffer` or `Array`, this shader object represents a collection
         /// instead of a single object.
         ShaderObjectContainerType m_containerType = ShaderObjectContainerType::None;
+
+        /// Metal argument encoder for ParameterBlock layouts.
+        List<NS::SharedPtr<MTL::ArgumentDescriptor>> m_argumentDescriptors;
+        NS::SharedPtr<MTL::ArgumentEncoder> m_argumentEncoder;
 
         Result setElementTypeLayout(slang::TypeLayoutReflection* typeLayout);
         SlangResult build(ShaderObjectLayoutImpl** outLayout);

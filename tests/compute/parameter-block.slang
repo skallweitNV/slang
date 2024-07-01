@@ -2,7 +2,7 @@
 //TEST(compute):COMPARE_COMPUTE:-cuda -shaderobj
 //TEST(compute):COMPARE_COMPUTE:-vk -shaderobj
 //TEST(compute):COMPARE_COMPUTE:-shaderobj
-//DISABLE_TEST(compute):COMPARE_COMPUTE:-slang -shaderobj -mtl
+// DISABLE_TEST(compute):COMPARE_COMPUTE:-slang -shaderobj -mtl
 
 // Ensure that Slang `ParameterBlock` type is lowered
 // to HLSL in the fashion that we expect.
@@ -25,7 +25,7 @@ void computeMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 
 	int inVal = block1.buffer[tid];
 
-	int outVal = inVal;
+    int outVal = inVal;
 
-	block0.buffer[tid] = outVal;
+    block0.buffer[tid] = outVal;
 }

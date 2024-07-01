@@ -152,8 +152,8 @@ Result DeviceImpl::createCommandQueue(const ICommandQueue::Desc& desc, ICommandQ
 {
     AUTORELEASEPOOL
 
-    if (m_queueAllocCount != 0)
-        return SLANG_FAIL;
+    // if (m_queueAllocCount != 0)
+    //     return SLANG_FAIL;
 
     RefPtr<CommandQueueImpl> result = new CommandQueueImpl;
     result->init(this, m_commandQueue);
@@ -216,7 +216,7 @@ SlangResult DeviceImpl::readTextureResource(
 
     if (textureImpl->getDesc()->sampleDesc.numSamples > 1)
     {
-    return SLANG_E_NOT_IMPLEMENTED;
+        return SLANG_E_NOT_IMPLEMENTED;
     }
 
     NS::SharedPtr<MTL::Texture> srcTexture = textureImpl->m_texture;
@@ -266,6 +266,17 @@ SlangResult DeviceImpl::readBufferResource(
 {
     AUTORELEASEPOOL
 
+    BufferResourceImpl* bufferImpl = static_cast<BufferResourceImpl*>(buffer);
+    // if (bufferImpl->m_buffer->contents())
+    // {
+    //     List<uint8_t> blobData;
+    //     blobData.setCount(size);
+    //     ::memcpy(blobData.getBuffer(), static_cast<uint8_t*>(bufferImpl->m_buffer->contents()) + offset, size);
+    //     auto blob = ListBlob::moveCreate(blobData);
+    //     returnComPtr(outBlob, blob);
+    //     return SLANG_OK;
+    // }
+
     // create staging buffer
     NS::SharedPtr<MTL::Buffer> stagingBuffer = NS::TransferPtr(m_device->newBuffer(size, MTL::StorageModeShared));
     if (!stagingBuffer)
@@ -275,7 +286,7 @@ SlangResult DeviceImpl::readBufferResource(
 
     MTL::CommandBuffer* commandBuffer = m_commandQueue->commandBuffer();
     MTL::BlitCommandEncoder* blitEncoder = commandBuffer->blitCommandEncoder();
-    blitEncoder->copyFromBuffer(static_cast<BufferResourceImpl*>(buffer)->m_buffer.get(), offset, stagingBuffer.get(), 0, size);
+    blitEncoder->copyFromBuffer(bufferImpl->m_buffer.get(), offset, stagingBuffer.get(), 0, size);
     blitEncoder->endEncoding();
     commandBuffer->commit();
     commandBuffer->waitUntilCompleted();
@@ -803,6 +814,13 @@ Result DeviceImpl::createFence(const IFence::Desc& desc, IFence** outFence)
 Result DeviceImpl::waitForFences(
     GfxCount fenceCount, IFence** fences, uint64_t* fenceValues, bool waitForAll, uint64_t timeout)
 {
+    AUTORELEASEPOOL
+
+    for (GfxCount i = 0; i < fenceCount; ++i)
+    {
+        FenceImpl* fenceImpl = static_cast<FenceImpl*>(fences[i]);
+        // fenceImpl->m_event->waitUntilValue(fenceValues[i]);
+    }
     return SLANG_E_NOT_IMPLEMENTED;
 }
 

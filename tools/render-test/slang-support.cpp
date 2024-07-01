@@ -223,6 +223,8 @@ void ShaderCompilerUtil::Output::reset()
             spSetDebugInfoLevel(slangRequest, SLANG_DEBUG_INFO_LEVEL_STANDARD);
     }
 
+    spSetDumpIntermediates(slangRequest, true);
+
     const SlangResult res = spCompile(slangRequest);
 
     if (auto diagnostics = spGetDiagnosticOutput(slangRequest))

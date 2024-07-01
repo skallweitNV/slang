@@ -105,7 +105,7 @@ namespace gfx_test
         ITextureResource::Desc texDesc = {};
         texDesc.type = IResource::Type::Texture2D;
         texDesc.numMipLevels = mips;
-        texDesc.arraySize = 1;
+        texDesc.arraySize = 0;
         texDesc.size = size;
         texDesc.defaultState = ResourceState::ShaderResource;
         texDesc.format = format;
@@ -1114,6 +1114,11 @@ namespace gfx_test
     SLANG_UNIT_TEST(FormatTestsVulkan)
     {
         runTestImpl(formatTestsImpl, unitTestContext, Slang::RenderApiFlag::Vulkan);
+    }
+
+    SLANG_UNIT_TEST(FormatTestsMetal)
+    {
+        runTestImpl(formatTestsImpl, unitTestContext, Slang::RenderApiFlag::Metal);
     }
 
 }

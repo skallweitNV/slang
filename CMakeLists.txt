@@ -778,6 +778,7 @@ if (SLANG_ENABLE_EXAMPLES AND SLANG_ENABLE_GFX)
     if(SLANG_ENABLE_AFTERMATH)
         example(examples/nv-aftermath-example WIN32_EXECUTABLE)
     endif()
+    example(examples/simple-compute WIN32_EXECUTABLE)
 endif()
 
 #

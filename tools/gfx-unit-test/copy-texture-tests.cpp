@@ -780,6 +780,13 @@ namespace gfx_test
         runTestImpl(copyTextureTestImpl<SimpleCopyTexture>, unitTestContext, Slang::RenderApiFlag::Vulkan);
     }
 
+    SLANG_UNIT_TEST(copyTextureSimpleMetal)
+    {
+        // TODO: METALTEST
+        SLANG_IGNORE_TEST
+        runTestImpl(copyTextureTestImpl<SimpleCopyTexture>, unitTestContext, Slang::RenderApiFlag::Metal);
+    }
+
     SLANG_UNIT_TEST(copyTextureSection)
     {
         runTestImpl(copyTextureTestImpl<CopyTextureSection>, unitTestContext, Slang::RenderApiFlag::D3D12);

@@ -207,6 +207,9 @@ gfx::Result loadShaderProgram(
 ComPtr<gfx::IPipelineState> gPipelineState;
 ComPtr<gfx::IBufferResource> gVertexBuffer;
 
+ComPtr<gfx::IBufferResource> gBuffers[3];
+ComPtr<gfx::IResourceView> gBufferViews[3];
+
 // Now that we've covered the function that actually loads and
 // compiles our Slang shade code, we can go through the rest
 // of the application code without as much commentary.
@@ -241,6 +244,21 @@ Slang::Result initialize()
     vertexBufferDesc.defaultState = ResourceState::VertexBuffer;
     gVertexBuffer = gDevice->createBufferResource(vertexBufferDesc, &kVertexData[0]);
     if(!gVertexBuffer) return SLANG_FAIL;
+
+    float bufferData[3] = { 0.5f, 0.f, 0.f };
+    for (int i = 0; i < 3; ++i)
+    {
+        IBufferResource::Desc bufferDesc;
+        bufferDesc.type = IResource::Type::Buffer;
+        bufferDesc.sizeInBytes = 4;
+        bufferDesc.defaultState = ResourceState::ShaderResource;
+        gBuffers[i] = gDevice->createBufferResource(vertexBufferDesc, &bufferData[i]);
+        if(!gBuffers[0]) return SLANG_FAIL;
+        IResourceView::Desc viewDesc = {};
+        viewDesc.type = IResourceView::Type::ShaderResource;
+        gBufferViews[i] = gDevice->createBufferView(gBuffers[i], nullptr, viewDesc);
+        if(!gBufferViews[0]) return SLANG_FAIL;
+    }
 
     // Now we will use our `loadShaderProgram` function to load
     // the code from `shaders.slang` into the graphics API.
@@ -354,6 +372,9 @@ virtual void renderFrame(int frameBufferIndex) override
     //
     rootCursor["Uniforms"]["modelViewProjection"].setData(
         deviceInfo.identityProjectionMatrix, sizeof(float) * 16);
+    rootCursor["buf1"].setResource(gBufferViews[0]);
+    rootCursor["buf2"].setResource(gBufferViews[1]);
+    rootCursor["buf3"].setResource(gBufferViews[2]);
     //
     // Some readers might be concerned about the performance o
     // the above operations because of the use of strings. For

@@ -30,12 +30,18 @@ Result TransientResourceHeapImpl::createCommandBuffer(ICommandBuffer** outCmdBuf
 {
     RefPtr<CommandBufferImpl> commandBuffer = new CommandBufferImpl();
     SLANG_RETURN_ON_FAIL(commandBuffer->init(m_device, this));
+    m_commandBuffers.add(commandBuffer);
     returnComPtr(outCmdBuffer, commandBuffer);
     return SLANG_OK;
 }
 
 Result TransientResourceHeapImpl::synchronizeAndReset()
 {
+    for (const auto& commandBuffer : m_commandBuffers)
+    {
+        commandBuffer->m_commandBuffer->waitUntilCompleted();
+    }
+    m_commandBuffers.clear();
     Super::reset();
     return SLANG_OK;
 }

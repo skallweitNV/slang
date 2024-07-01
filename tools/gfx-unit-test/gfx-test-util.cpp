@@ -257,6 +257,9 @@ namespace gfx_test
         case Slang::RenderApiFlag::Vulkan:
             deviceDesc.deviceType = gfx::DeviceType::Vulkan;
             break;
+        case Slang::RenderApiFlag::Metal:
+            deviceDesc.deviceType = gfx::DeviceType::Metal;
+            break;
         case Slang::RenderApiFlag::CPU:
             deviceDesc.deviceType = gfx::DeviceType::CPU;
             break;

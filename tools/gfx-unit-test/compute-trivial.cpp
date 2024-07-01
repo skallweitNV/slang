@@ -96,4 +96,9 @@ namespace gfx_test
         runTestImpl(computeTrivialTestImpl, unitTestContext, Slang::RenderApiFlag::Vulkan);
     }
 
+    SLANG_UNIT_TEST(computeTrivialMetal)
+    {
+        runTestImpl(computeTrivialTestImpl, unitTestContext, Slang::RenderApiFlag::Metal);
+    }
+
 }

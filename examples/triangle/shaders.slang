@@ -6,6 +6,10 @@
 // use any of the new language features supported by Slang.
 //
 
+StructuredBuffer<float> buf1;
+StructuredBuffer<float> buf2;
+StructuredBuffer<float> buf3;
+
 // Uniform data to be passed from application -> shader.
 cbuffer Uniforms
 {
@@ -35,7 +39,7 @@ struct Fragment
 
 struct VertexStageOutput
 {
-    CoarseVertex    coarseVertex    : CoarseVertex;
+    CoarseVertex    coarseVertex    : COARSEVERTEX;
     float4          sv_position     : SV_Position;
 };
 
@@ -46,7 +50,10 @@ VertexStageOutput vertexMain(
     VertexStageOutput output;
 
     float3 position = assembledVertex.position;
-    float3 color    = assembledVertex.color;
+    float3 color = assembledVertex.color;
+    position.x += buf1[0];
+    // color.x += buf1[0];
+    color.y += buf3[0];
 
     output.coarseVertex.color = color;
     output.sv_position = mul(modelViewProjection, float4(position, 1.0));
@@ -58,9 +65,11 @@ VertexStageOutput vertexMain(
 
 [shader("fragment")]
 float4 fragmentMain(
-    CoarseVertex coarseVertex : CoarseVertex) : SV_Target
+    VertexStageOutput vertexStageOutput) : SV_Target
 {
-    float3 color = coarseVertex.color;
+    float3 color = vertexStageOutput.coarseVertex.color;
+    color.x += buf2[0];
+    color.y += buf3[0];
 
     return float4(color, 1.0);
 }

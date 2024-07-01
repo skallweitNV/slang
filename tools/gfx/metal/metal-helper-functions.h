@@ -14,6 +14,7 @@ struct BindingOffset
     uint32_t buffer = 0;
     uint32_t texture = 0;
     uint32_t sampler = 0;
+    uint32_t element = 0;
 
     /// Create a default (zero) offset
     BindingOffset() = default;
@@ -26,6 +27,7 @@ struct BindingOffset
             buffer = (uint32_t)varLayout->getOffset(SLANG_PARAMETER_CATEGORY_METAL_BUFFER);
             texture = (uint32_t)varLayout->getOffset(SLANG_PARAMETER_CATEGORY_METAL_TEXTURE);
             sampler = (uint32_t)varLayout->getOffset(SLANG_PARAMETER_CATEGORY_METAL_SAMPLER);
+            element = (uint32_t)varLayout->getOffset(SLANG_PARAMETER_CATEGORY_METAL_ARGUMENT_BUFFER_ELEMENT);
         }
     }
 
@@ -37,6 +39,7 @@ struct BindingOffset
             buffer = (uint32_t)typeLayout->getSize(SLANG_PARAMETER_CATEGORY_METAL_BUFFER);
             texture = (uint32_t)typeLayout->getSize(SLANG_PARAMETER_CATEGORY_METAL_TEXTURE);
             sampler = (uint32_t)typeLayout->getSize(SLANG_PARAMETER_CATEGORY_METAL_SAMPLER);
+            element = (uint32_t)typeLayout->getSize(SLANG_PARAMETER_CATEGORY_METAL_ARGUMENT_BUFFER_ELEMENT);
         }
     }
 
@@ -46,6 +49,7 @@ struct BindingOffset
         buffer += offset.buffer;
         texture += offset.texture;
         sampler += offset.sampler;
+        element += offset.element;
     }
 };
 
