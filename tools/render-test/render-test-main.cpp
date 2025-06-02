@@ -976,8 +976,7 @@ Result RenderTestApp::writeScreen(const String& filename)
 {
     rhi::SubresourceLayout layout;
     ComPtr<ISlangBlob> blob;
-    SLANG_RETURN_ON_FAIL(
-        m_device->readTexture(m_colorBuffer, 0, 0, blob.writeRef(), &layout));
+    SLANG_RETURN_ON_FAIL(m_device->readTexture(m_colorBuffer, 0, 0, blob.writeRef(), &layout));
     return PngSerializeUtil::write(
         filename.getBuffer(),
         blob,
