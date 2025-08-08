@@ -3629,15 +3629,13 @@ extension _Texture<T,Shape,isArray,0,sampleCount,0,isShadow,isCombined,format>
 		case cuda:
             if (isArray != 0)
                 {
-     				static_assert(Shape.flavor == $(SLANG_TEXTURE_2D) || Shape.flavor == $(SLANG_TEXTURE_3D),
-                              "Integer coordinates are supported for texture reads only for 2D and 3D textures and 2D array textures.");
-
-                    if (Shape.flavor == $(SLANG_TEXTURE_2D))
+                    switch(Shape.flavor)
                     {
+                    case $(SLANG_TEXTURE_1D):
+                        __intrinsic_asm "tex1DArrayfetch_int<$T0>($0, ($1).x, ($1).y)";
+                    case $(SLANG_TEXTURE_2D):
 						__intrinsic_asm "tex2DArrayfetch_int<$T0>($0, ($1).x, ($1).y, ($1).z)";
-				    }
-                    else
-					{
+                    default:
                         __intrinsic_asm "<invalid intrinsic>";
                     }
                 }
@@ -3645,6 +3643,8 @@ extension _Texture<T,Shape,isArray,0,sampleCount,0,isShadow,isCombined,format>
                 {
                     switch(Shape.flavor)
                     {
+                    case $(SLANG_TEXTURE_1D):
+                        __intrinsic_asm "tex1Dfetch_int<$T0>($0, ($1).x)";
                     case $(SLANG_TEXTURE_2D):
                         __intrinsic_asm "tex2Dfetch_int<$T0>($0, ($1).x, ($1).y)";
                     case $(SLANG_TEXTURE_3D):
