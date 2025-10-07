@@ -3672,7 +3672,7 @@ extension _Texture<T,Shape,isArray,0,sampleCount,0,isShadow,isCombined,format>
                     switch(Shape.flavor)
                     {
                     case $(SLANG_TEXTURE_2D):
-                        __intrinsic_asm "tex2Dfetch_int<$T0>($0, ($1).x, ($1).y)";
+                        __intrinsic_asm "tex2Dfetch_int<$T0>($0, ($1).x, ($1).y, ($1).z)";
                     case $(SLANG_TEXTURE_3D):
                         __intrinsic_asm "tex3Dfetch_int<$T0>($0, ($1).x, ($1).y, ($1).z)";
 					case $(SLANG_TEXTURE_CUBE):
