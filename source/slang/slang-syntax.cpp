@@ -1274,8 +1274,8 @@ FunctionDeclBase* getParentFunc(Decl* decl)
 }
 
 static const ImageFormatInfo kImageFormatInfos[] = {
-#define SLANG_IMAGE_FORMAT_INFO(TYPE, COUNT, SIZE) \
-    SLANG_SCALAR_TYPE_##TYPE, uint8_t(COUNT), uint8_t(SIZE)
+#define SLANG_IMAGE_FORMAT_INFO(TYPE, COUNT, SIZE, KIND) \
+    SLANG_SCALAR_TYPE_##TYPE, uint8_t(COUNT), uint8_t(SIZE), ImageFormatKind::KIND
 #define SLANG_FORMAT(NAME, OTHER) \
     {SLANG_IMAGE_FORMAT_INFO OTHER, UnownedStringSlice::fromLiteral(#NAME)},
 #include "slang-image-format-defs.h"

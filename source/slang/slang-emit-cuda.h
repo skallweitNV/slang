@@ -134,6 +134,28 @@ protected:
     void _emitInitializerListContent(IRType* elementType, IRUse* operands, Index operandCount);
     void _emitInitializerListValue(IRType* elementType, IRInst* value);
 
+    /// Try to emit a surface read/write with inline format conversion.
+    /// Returns true if it handled the call, false to fall through to default.
+    bool _tryEmitCUDASurfaceConvertCall(
+        IRCall* inst,
+        UnownedStringSlice intrinsicDefinition,
+        EmitOpInfo const& inOuterPrec);
+
+    /// Emit the CUDA storage type name for a given format (e.g., "uchar4", "ushort2").
+    void _emitCUDAStorageTypeName(const ImageFormatInfo& info);
+
+    /// Emit inline unpack code: storage type -> element type.
+    void _emitCUDAUnpackExpr(
+        const ImageFormatInfo& info,
+        IRType* elementType,
+        const char* storageVarName);
+
+    /// Emit inline pack code: element type -> storage type.
+    void _emitCUDAPackExpr(
+        const ImageFormatInfo& info,
+        IRType* elementType,
+        const char* valueVarName);
+
     SlangResult emitWMMAFragmentType(IRCoopMatrixType* coopMatType, StringBuilder& outName);
     RefPtr<CUDAExtensionTracker> m_extensionTracker;
 };

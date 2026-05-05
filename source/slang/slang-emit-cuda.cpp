@@ -647,6 +647,667 @@ void CUDASourceEmitter::_emitInitializerList(
     m_writer->emit("\n}");
 }
 
+// Find the IRFormatDecoration on a resource instruction, traversing through loads/field addresses.
+static IRFormatDecoration* _findImageFormatDecorationForCUDA(IRInst* resourceInst)
+{
+    if (IRLoad* load = as<IRLoad>(resourceInst))
+    {
+        if (IRFieldAddress* fieldAddress = as<IRFieldAddress>(load->getOperand(0)))
+        {
+            IRInst* field = fieldAddress->getField();
+            return field->findDecoration<IRFormatDecoration>();
+        }
+    }
+    return resourceInst->findDecoration<IRFormatDecoration>();
+}
+
+// Helper to map SlangScalarType to BaseType.
+static BaseType _scalarTypeToBaseType(SlangScalarType scalarType)
+{
+    switch (scalarType)
+    {
+    case SLANG_SCALAR_TYPE_UINT8:
+        return BaseType::UInt8;
+    case SLANG_SCALAR_TYPE_INT8:
+        return BaseType::Int8;
+    case SLANG_SCALAR_TYPE_UINT16:
+        return BaseType::UInt16;
+    case SLANG_SCALAR_TYPE_INT16:
+        return BaseType::Int16;
+    case SLANG_SCALAR_TYPE_UINT32:
+        return BaseType::UInt;
+    case SLANG_SCALAR_TYPE_INT32:
+        return BaseType::Int;
+    case SLANG_SCALAR_TYPE_UINT64:
+        return BaseType::UInt64;
+    case SLANG_SCALAR_TYPE_INT64:
+        return BaseType::Int64;
+    case SLANG_SCALAR_TYPE_FLOAT16:
+        return BaseType::Half;
+    case SLANG_SCALAR_TYPE_FLOAT32:
+        return BaseType::Float;
+    case SLANG_SCALAR_TYPE_FLOAT64:
+        return BaseType::Double;
+    default:
+        return BaseType::Void;
+    }
+}
+
+// Check if format and element type are compatible (no conversion needed).
+static bool _isImageFormatCompatibleCUDA(ImageFormat imageFormat, IRType* dataType)
+{
+    int numElems = 1;
+    if (auto vecType = as<IRVectorType>(dataType))
+    {
+        numElems = int(getIntVal(vecType->getElementCount()));
+        dataType = vecType->getElementType();
+    }
+
+    BaseType baseType = BaseType::Void;
+    if (auto basicType = as<IRBasicType>(dataType))
+        baseType = basicType->getBaseType();
+
+    const auto& info = getImageFormatInfo(imageFormat);
+
+    if (numElems != info.channelCount)
+        return false;
+
+    BaseType formatBaseType = _scalarTypeToBaseType(info.scalarType);
+    return formatBaseType == baseType;
+}
+
+// Determine if a format conversion is required for a surface access.
+static bool _isCUDAConvertRequired(ImageFormat imageFormat, IRInst* resourceInst)
+{
+    auto textureType = as<IRTextureTypeBase>(resourceInst->getDataType());
+    IRType* elementType = textureType ? textureType->getElementType() : nullptr;
+    return elementType && !_isImageFormatCompatibleCUDA(imageFormat, elementType);
+}
+
+// Get CUDA storage type name for a given scalar type and channel count.
+static const char* _getCUDAStorageScalarTypeName(SlangScalarType scalarType)
+{
+    switch (scalarType)
+    {
+    case SLANG_SCALAR_TYPE_UINT8:
+        return "uchar";
+    case SLANG_SCALAR_TYPE_INT8:
+        return "char";
+    case SLANG_SCALAR_TYPE_UINT16:
+    case SLANG_SCALAR_TYPE_FLOAT16: // Half floats stored as ushort
+        return "ushort";
+    case SLANG_SCALAR_TYPE_INT16:
+        return "short";
+    case SLANG_SCALAR_TYPE_UINT32:
+        return "uint";
+    case SLANG_SCALAR_TYPE_INT32:
+        return "int";
+    case SLANG_SCALAR_TYPE_FLOAT32:
+        return "float";
+    default:
+        return nullptr;
+    }
+}
+
+void CUDASourceEmitter::_emitCUDAStorageTypeName(const ImageFormatInfo& info)
+{
+    const char* scalarName = _getCUDAStorageScalarTypeName(info.scalarType);
+    SLANG_ASSERT(scalarName);
+    m_writer->emit(scalarName);
+    if (info.channelCount > 1)
+        m_writer->emitUInt64(info.channelCount);
+}
+
+void CUDASourceEmitter::_emitCUDAUnpackExpr(
+    const ImageFormatInfo& info,
+    IRType* elementType,
+    const char* storageVarName)
+{
+    // Determine the element's scalar base type
+    IRType* scalarType = elementType;
+    int elemCount = 1;
+    if (auto vecType = as<IRVectorType>(elementType))
+    {
+        elemCount = int(getIntVal(vecType->getElementCount()));
+        scalarType = vecType->getElementType();
+    }
+
+    BaseType elemBaseType = BaseType::Void;
+    if (auto basicType = as<IRBasicType>(scalarType))
+        elemBaseType = basicType->getBaseType();
+
+    int formatChannels = info.channelCount;
+    const char* components[] = {"x", "y", "z", "w"};
+
+    // Emit make_TYPE(...)
+    if (elemCount > 1)
+    {
+        m_writer->emit("make_");
+        emitSimpleType(elementType);
+        m_writer->emit("(");
+    }
+
+    for (int i = 0; i < elemCount; i++)
+    {
+        if (i > 0)
+            m_writer->emit(", ");
+
+        if (i >= formatChannels)
+        {
+            // Zero-fill channels beyond what the format provides
+            m_writer->emit("0");
+            continue;
+        }
+
+        // Get the source component expression
+        StringBuilder srcExpr;
+        srcExpr << storageVarName;
+        if (formatChannels > 1)
+            srcExpr << "." << components[i];
+
+        switch (info.formatKind)
+        {
+        case ImageFormatKind::Unorm:
+            // storage is UINT8/UINT16 -> float: val / maxVal
+            if (elemBaseType == BaseType::Float)
+            {
+                m_writer->emit("(");
+                m_writer->emit(srcExpr);
+                m_writer->emit(" / ");
+                m_writer->emit(
+                    (info.scalarType == SLANG_SCALAR_TYPE_UINT8) ? "255.0f" : "65535.0f");
+                m_writer->emit(")");
+            }
+            else
+            {
+                m_writer->emit("(");
+                emitSimpleType(scalarType);
+                m_writer->emit(")(");
+                m_writer->emit(srcExpr);
+                m_writer->emit(")");
+            }
+            break;
+
+        case ImageFormatKind::Snorm:
+            // storage is UINT8/UINT16 reinterpreted as signed -> float: max(val / maxVal,
+            // -1.0f)
+            if (elemBaseType == BaseType::Float)
+            {
+                const char* signedType =
+                    (info.scalarType == SLANG_SCALAR_TYPE_UINT8) ? "char" : "short";
+                const char* maxValStr =
+                    (info.scalarType == SLANG_SCALAR_TYPE_UINT8) ? "127.0f" : "32767.0f";
+                m_writer->emit("fmaxf((float)(");
+                m_writer->emit(signedType);
+                m_writer->emit(")(");
+                m_writer->emit(srcExpr);
+                m_writer->emit(") / ");
+                m_writer->emit(maxValStr);
+                m_writer->emit(", -1.0f)");
+            }
+            else
+            {
+                m_writer->emit("(");
+                emitSimpleType(scalarType);
+                m_writer->emit(")(");
+                m_writer->emit(srcExpr);
+                m_writer->emit(")");
+            }
+            break;
+
+        case ImageFormatKind::HalfFloat:
+            // storage is ushort -> float via half: __half2float(__ushort_as_half(val))
+            if (elemBaseType == BaseType::Float)
+            {
+                m_writer->emit("__half2float(__ushort_as_half(");
+                m_writer->emit(srcExpr);
+                m_writer->emit("))");
+            }
+            else if (elemBaseType == BaseType::Half)
+            {
+                m_writer->emit("__ushort_as_half(");
+                m_writer->emit(srcExpr);
+                m_writer->emit(")");
+            }
+            else
+            {
+                m_writer->emit("(");
+                emitSimpleType(scalarType);
+                m_writer->emit(")(");
+                m_writer->emit(srcExpr);
+                m_writer->emit(")");
+            }
+            break;
+
+        case ImageFormatKind::Uint:
+        case ImageFormatKind::Sint:
+            // Direct cast/widen
+            m_writer->emit("(");
+            emitSimpleType(scalarType);
+            m_writer->emit(")(");
+            m_writer->emit(srcExpr);
+            m_writer->emit(")");
+            break;
+
+        default:
+            // Float or unknown - direct cast
+            m_writer->emit("(");
+            emitSimpleType(scalarType);
+            m_writer->emit(")(");
+            m_writer->emit(srcExpr);
+            m_writer->emit(")");
+            break;
+        }
+    }
+
+    if (elemCount > 1)
+    {
+        m_writer->emit(")");
+    }
+}
+
+void CUDASourceEmitter::_emitCUDAPackExpr(
+    const ImageFormatInfo& info,
+    IRType* elementType,
+    const char* valueVarName)
+{
+    // Determine the element's scalar base type
+    IRType* scalarType = elementType;
+    int elemCount = 1;
+    if (auto vecType = as<IRVectorType>(elementType))
+    {
+        elemCount = int(getIntVal(vecType->getElementCount()));
+        scalarType = vecType->getElementType();
+    }
+
+    BaseType elemBaseType = BaseType::Void;
+    if (auto basicType = as<IRBasicType>(scalarType))
+        elemBaseType = basicType->getBaseType();
+
+    int formatChannels = info.channelCount;
+    const char* components[] = {"x", "y", "z", "w"};
+
+    // For vector storage types, emit make_StorageType(...); for scalar, just emit the expression
+    bool isVectorStorage = formatChannels > 1;
+    if (isVectorStorage)
+    {
+        m_writer->emit("make_");
+        _emitCUDAStorageTypeName(info);
+        m_writer->emit("(");
+    }
+
+    for (int i = 0; i < formatChannels; i++)
+    {
+        if (i > 0)
+            m_writer->emit(", ");
+
+        // Get the source component expression
+        StringBuilder srcExpr;
+        srcExpr << valueVarName;
+        if (elemCount > 1 && i < elemCount)
+            srcExpr << "." << components[i];
+
+        // If element has fewer channels than format, use 0
+        if (i >= elemCount)
+        {
+            const char* storageCastType = _getCUDAStorageScalarTypeName(info.scalarType);
+            m_writer->emit("(");
+            m_writer->emit(storageCastType);
+            m_writer->emit(")0");
+            continue;
+        }
+
+        switch (info.formatKind)
+        {
+        case ImageFormatKind::Unorm:
+            // float -> UINT8/UINT16: (uchar)(__saturatef(val) * 255.0f + 0.5f)
+            if (elemBaseType == BaseType::Float)
+            {
+                const char* storageCastType = _getCUDAStorageScalarTypeName(info.scalarType);
+                const char* maxValStr =
+                    (info.scalarType == SLANG_SCALAR_TYPE_UINT8) ? "255.0f" : "65535.0f";
+                m_writer->emit("(");
+                m_writer->emit(storageCastType);
+                m_writer->emit(")(__saturatef(");
+                m_writer->emit(srcExpr);
+                m_writer->emit(") * ");
+                m_writer->emit(maxValStr);
+                m_writer->emit(" + 0.5f)");
+            }
+            else
+            {
+                const char* storageCastType = _getCUDAStorageScalarTypeName(info.scalarType);
+                m_writer->emit("(");
+                m_writer->emit(storageCastType);
+                m_writer->emit(")(");
+                m_writer->emit(srcExpr);
+                m_writer->emit(")");
+            }
+            break;
+
+        case ImageFormatKind::Snorm:
+            // float -> INT8/INT16: (char)(fmaxf(fminf(val, 1.0f), -1.0f) * 127.0f + (val >= 0
+            // ? 0.5f : -0.5f))
+            if (elemBaseType == BaseType::Float)
+            {
+                const char* storageCastType = _getCUDAStorageScalarTypeName(info.scalarType);
+                const char* maxValStr =
+                    (info.scalarType == SLANG_SCALAR_TYPE_UINT8) ? "127.0f" : "32767.0f";
+                m_writer->emit("(");
+                m_writer->emit(storageCastType);
+                m_writer->emit(")(fmaxf(fminf(");
+                m_writer->emit(srcExpr);
+                m_writer->emit(", 1.0f), -1.0f) * ");
+                m_writer->emit(maxValStr);
+                m_writer->emit(" + (");
+                m_writer->emit(srcExpr);
+                m_writer->emit(" >= 0 ? 0.5f : -0.5f))");
+            }
+            else
+            {
+                const char* storageCastType = _getCUDAStorageScalarTypeName(info.scalarType);
+                m_writer->emit("(");
+                m_writer->emit(storageCastType);
+                m_writer->emit(")(");
+                m_writer->emit(srcExpr);
+                m_writer->emit(")");
+            }
+            break;
+
+        case ImageFormatKind::HalfFloat:
+            // float -> ushort: __half_as_ushort(__float2half(val))
+            if (elemBaseType == BaseType::Float)
+            {
+                m_writer->emit("__half_as_ushort(__float2half(");
+                m_writer->emit(srcExpr);
+                m_writer->emit("))");
+            }
+            else if (elemBaseType == BaseType::Half)
+            {
+                m_writer->emit("__half_as_ushort(");
+                m_writer->emit(srcExpr);
+                m_writer->emit(")");
+            }
+            else
+            {
+                m_writer->emit("(ushort)(");
+                m_writer->emit(srcExpr);
+                m_writer->emit(")");
+            }
+            break;
+
+        case ImageFormatKind::Uint:
+        case ImageFormatKind::Sint:
+        {
+            // Direct cast
+            const char* storageCastType = _getCUDAStorageScalarTypeName(info.scalarType);
+            m_writer->emit("(");
+            m_writer->emit(storageCastType);
+            m_writer->emit(")(");
+            m_writer->emit(srcExpr);
+            m_writer->emit(")");
+            break;
+        }
+
+        default:
+        {
+            const char* storageCastType = _getCUDAStorageScalarTypeName(info.scalarType);
+            m_writer->emit("(");
+            m_writer->emit(storageCastType);
+            m_writer->emit(")(");
+            m_writer->emit(srcExpr);
+            m_writer->emit(")");
+            break;
+        }
+        }
+    }
+
+    if (isVectorStorage)
+    {
+        m_writer->emit(")");
+    }
+}
+
+// Parse a CUDA surface intrinsic definition string to determine:
+// - The surface function name (e.g., "surf2Dread", "surf2Dwrite")
+// - Whether it is a read or write
+// Returns the function name portion before "$C" or returns empty if not a surface call.
+static bool _parseCUDASurfaceIntrinsic(
+    UnownedStringSlice intrinsicDef,
+    StringBuilder& outFuncName,
+    bool& outIsWrite)
+{
+    // Surface intrinsics look like:
+    //   "surf2Dread$C<$T0>($0, ($1).x * $E, ($1).y, SLANG_CUDA_BOUNDARY_MODE)"
+    //   "surf2Dwrite$C<$T0>($2, $0, ($1).x * $E, ($1).y, SLANG_CUDA_BOUNDARY_MODE)"
+
+    // Check if it starts with "surf"
+    if (!intrinsicDef.startsWith(toSlice("surf")))
+        return false;
+
+    // Find "$C" in the string - this marks a surface call that can have conversion
+    auto dollarC = intrinsicDef.indexOf(toSlice("$C"));
+    if (dollarC == Index(-1))
+        return false;
+
+    // Extract the function name (everything before $C)
+    outFuncName.clear();
+    outFuncName.append(intrinsicDef.head(dollarC));
+
+    // Determine read vs write
+    outIsWrite = outFuncName.indexOf(toSlice("write")) != Index(-1);
+    return true;
+}
+
+bool CUDASourceEmitter::_tryEmitCUDASurfaceConvertCall(
+    IRCall* inst,
+    UnownedStringSlice intrinsicDefinition,
+    EmitOpInfo const& inOuterPrec)
+{
+    // Parse the intrinsic to see if it's a surface read/write
+    StringBuilder funcName;
+    bool isWrite = false;
+    if (!_parseCUDASurfaceIntrinsic(intrinsicDefinition, funcName, isWrite))
+        return false;
+
+    // Get the resource argument (always arg 0)
+    IRUse* args = inst->getOperands();
+    Index argCount = inst->getOperandCount();
+    // Skip the callee (first operand)
+    args++;
+    argCount--;
+
+    IRInst* resourceInst = args[0].get();
+
+    // Check if format conversion is required
+    IRFormatDecoration* formatDecoration = _findImageFormatDecorationForCUDA(resourceInst);
+    if (!formatDecoration)
+        return false; // No format decoration, let default handle it
+
+    ImageFormat imageFormat = formatDecoration->getFormat();
+    if (!_isCUDAConvertRequired(imageFormat, resourceInst))
+        return false; // No conversion needed, let default handle it
+
+    const auto& formatInfo = getImageFormatInfo(imageFormat);
+
+    // Don't handle special formats inline
+    if (formatInfo.formatKind == ImageFormatKind::Special || formatInfo.scalarType == SLANG_SCALAR_TYPE_NONE)
+        return false;
+
+    // Get the texture element type
+    auto textureType = as<IRTextureTypeBase>(resourceInst->getDataType());
+    IRType* elementType = textureType->getElementType();
+
+    // If reading half formats, enable half
+    if (formatInfo.formatKind == ImageFormatKind::HalfFloat)
+    {
+        m_extensionTracker->requireBaseType(BaseType::Half);
+    }
+
+    if (isWrite)
+    {
+        // Write case:
+        // The intrinsic string pattern for writes is:
+        //   "surf2Dwrite$C<$T0>($2, $0, ($1).x * $E, ($1).y, SLANG_CUDA_BOUNDARY_MODE)"
+        // args: $0=resource, $1=location, $2=newValue
+        //
+        // We need to emit:
+        // ([&]() {
+        //   auto _val = <newValue>;
+        //   <StorageType> _packed = make_<StorageType>(<pack expressions>);
+        //   surf2Dwrite<StorageType>(_packed, <resource>, <coord>.x * <elemSize>, <coord>.y, SLANG_CUDA_BOUNDARY_MODE);
+        // })()
+
+        auto outerPrec = inOuterPrec;
+        auto prec = getInfo(EmitOp::Postfix);
+        bool needClose = maybeEmitParens(outerPrec, prec);
+
+        m_writer->emit("([&]() {\n");
+        m_writer->indent();
+
+        // Emit: auto _val = <newValue>;
+        m_writer->emit("auto _slang_val = ");
+        emitOperand(args[2].get(), getInfo(EmitOp::General));
+        m_writer->emit(";\n");
+
+        // Emit: <StorageType> _packed = make_<StorageType>(<pack expressions>);
+        _emitCUDAStorageTypeName(formatInfo);
+        m_writer->emit(" _slang_packed = ");
+        _emitCUDAPackExpr(formatInfo, elementType, "_slang_val");
+        m_writer->emit(";\n");
+
+        // Emit: surfNDwrite<StorageType>(_packed, resource, coord.x * elemSize, coord.y, ...);
+        m_writer->emit(funcName);
+        m_writer->emit("<");
+        _emitCUDAStorageTypeName(formatInfo);
+        m_writer->emit(">(_slang_packed, ");
+        emitOperand(args[0].get(), getInfo(EmitOp::General));
+        m_writer->emit(", ");
+
+        // Emit coordinate arguments with byte-addressing on x
+        // Parse the intrinsic string to figure out the dimensionality from the function name
+        // For write intrinsics, the coordinates are in args[1]
+        // The x coordinate needs to be multiplied by the storage element size
+        m_writer->emit("(");
+        emitOperand(args[1].get(), getInfo(EmitOp::General));
+
+        // Check if it's a 1D non-array case (where args[1] is scalar, not a vector)
+        auto coordType = args[1].get()->getDataType();
+        bool isScalarCoord = !as<IRVectorType>(coordType);
+
+        if (isScalarCoord)
+        {
+            // 1D non-array: coord is scalar
+            m_writer->emit(") * ");
+            m_writer->emitUInt64(formatInfo.sizeInBytes);
+        }
+        else
+        {
+            // Multi-dimensional: coord.x needs byte addressing
+            m_writer->emit(").x * ");
+            m_writer->emitUInt64(formatInfo.sizeInBytes);
+        }
+
+        // Emit remaining coordinate components
+        if (!isScalarCoord)
+        {
+            auto vecType = as<IRVectorType>(coordType);
+            int coordCount = int(getIntVal(vecType->getElementCount()));
+            const char* components[] = {"y", "z", "w"};
+            for (int i = 1; i < coordCount; i++)
+            {
+                m_writer->emit(", (");
+                emitOperand(args[1].get(), getInfo(EmitOp::General));
+                m_writer->emit(").");
+                m_writer->emit(components[i - 1]);
+            }
+        }
+
+        m_writer->emit(", SLANG_CUDA_BOUNDARY_MODE);\n");
+
+        m_writer->dedent();
+        m_writer->emit("})()");
+
+        maybeCloseParens(needClose);
+    }
+    else
+    {
+        // Read case:
+        // The intrinsic string pattern for reads is:
+        //   "surf2Dread$C<$T0>($0, ($1).x * $E, ($1).y, SLANG_CUDA_BOUNDARY_MODE)"
+        // args: $0=resource, $1=location
+        //
+        // We need to emit:
+        // ([&]() {
+        //   <StorageType> _storage = surfNDread<StorageType>(resource, coord.x * elemSize, coord.y, SLANG_CUDA_BOUNDARY_MODE);
+        //   return <unpack expression>;
+        // })()
+
+        auto outerPrec = inOuterPrec;
+        auto prec = getInfo(EmitOp::Postfix);
+        bool needClose = maybeEmitParens(outerPrec, prec);
+
+        m_writer->emit("([&]() {\n");
+        m_writer->indent();
+
+        // Emit: <StorageType> _storage = surfNDread<StorageType>(...);
+        _emitCUDAStorageTypeName(formatInfo);
+        m_writer->emit(" _slang_storage = ");
+        m_writer->emit(funcName);
+        m_writer->emit("<");
+        _emitCUDAStorageTypeName(formatInfo);
+        m_writer->emit(">(");
+        emitOperand(args[0].get(), getInfo(EmitOp::General));
+        m_writer->emit(", ");
+
+        // Emit coordinate arguments with byte-addressing on x
+        auto coordType = args[1].get()->getDataType();
+        bool isScalarCoord = !as<IRVectorType>(coordType);
+
+        if (isScalarCoord)
+        {
+            // 1D non-array: coord is scalar
+            m_writer->emit("(");
+            emitOperand(args[1].get(), getInfo(EmitOp::General));
+            m_writer->emit(") * ");
+            m_writer->emitUInt64(formatInfo.sizeInBytes);
+        }
+        else
+        {
+            // Multi-dimensional: coord.x needs byte addressing
+            m_writer->emit("(");
+            emitOperand(args[1].get(), getInfo(EmitOp::General));
+            m_writer->emit(").x * ");
+            m_writer->emitUInt64(formatInfo.sizeInBytes);
+
+            auto vecType = as<IRVectorType>(coordType);
+            int coordCount = int(getIntVal(vecType->getElementCount()));
+            const char* components[] = {"y", "z", "w"};
+            for (int i = 1; i < coordCount; i++)
+            {
+                m_writer->emit(", (");
+                emitOperand(args[1].get(), getInfo(EmitOp::General));
+                m_writer->emit(").");
+                m_writer->emit(components[i - 1]);
+            }
+        }
+
+        m_writer->emit(", SLANG_CUDA_BOUNDARY_MODE);\n");
+
+        // Emit: return <unpack expression>;
+        m_writer->emit("return ");
+        _emitCUDAUnpackExpr(formatInfo, elementType, "_slang_storage");
+        m_writer->emit(";\n");
+
+        m_writer->dedent();
+        m_writer->emit("})()");
+
+        maybeCloseParens(needClose);
+    }
+
+    return true;
+}
+
 void CUDASourceEmitter::emitIntrinsicCallExprImpl(
     IRCall* inst,
     UnownedStringSlice intrinsicDefinition,
@@ -661,6 +1322,10 @@ void CUDASourceEmitter::emitIntrinsicCallExprImpl(
     {
         m_extensionTracker->requireBaseType(BaseType::Half);
     }
+
+    // Try to handle surface read/write with inline format conversion
+    if (_tryEmitCUDASurfaceConvertCall(inst, intrinsicDefinition, inOuterPrec))
+        return;
 
     Super::emitIntrinsicCallExprImpl(inst, intrinsicDefinition, intrinsicInst, inOuterPrec);
 }

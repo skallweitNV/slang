@@ -205,12 +205,24 @@ FIDDLE() namespace Slang
 #undef SLANG_FORMAT
     };
 
+    enum class ImageFormatKind : uint8_t
+    {
+        Float,  ///< 32-bit float (no conversion needed when element type matches)
+        Unorm,  ///< Unsigned normalized (e.g., rgba8, r16)
+        Snorm,  ///< Signed normalized (e.g., rgba8_snorm)
+        Uint,   ///< Unsigned integer (e.g., rgba8ui, rgba16ui)
+        Sint,   ///< Signed integer (e.g., rgba8i, rgba16i)
+        HalfFloat, ///< 16-bit float stored as ushort (e.g., r16f, rgba16f)
+        Special,   ///< Packed formats requiring special handling (e.g., rgb10_a2, r11f_g11f_b10f)
+    };
+
     struct ImageFormatInfo
     {
         SlangScalarType scalarType; ///< If image format is not made up of channels of set sizes
                                     ///< this will be SLANG_SCALAR_TYPE_NONE
         uint8_t channelCount;       ///< The number of channels
         uint8_t sizeInBytes;        ///< Size in bytes
+        ImageFormatKind formatKind; ///< The kind of format (unorm, snorm, float, etc.)
         UnownedStringSlice name;    ///< The name associated with this type. NOTE! Currently these
                                     ///< names *are* the GLSL format names.
     };

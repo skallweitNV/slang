@@ -233,12 +233,6 @@ static bool _isResourceRead(IRCall* call)
     return returnType && (as<IRVoidType>(returnType) == nullptr);
 }
 
-static bool _isResourceWrite(IRCall* call)
-{
-    IRType* returnType = call->getDataType();
-    return returnType && (as<IRVoidType>(returnType) != nullptr);
-}
-
 static Index parseNumber(const char*& cursor, const char* end)
 {
     char d = *cursor;
@@ -495,17 +489,6 @@ const char* IntrinsicExpandContext::_emitSpecial(const char* cursor)
 
             IRInst* resourceInst = m_callInst->getArg(0);
             size_t elemSizeInBytes = _calcBackingElementSizeInBytes(resourceInst);
-
-            // If we have a format converstion and its a *write* we don't need to scale
-            if (IRFormatDecoration* formatDecoration = _findImageFormatDecoration(resourceInst))
-            {
-                const ImageFormat imageFormat = formatDecoration->getFormat();
-                if (_isConvertRequired(imageFormat, resourceInst) && _isResourceWrite(m_callInst))
-                {
-                    // If there is a conversion *and* it's a write we don't need to scale.
-                    elemSizeInBytes = 1;
-                }
-            }
 
             SLANG_ASSERT(elemSizeInBytes > 0);
             m_writer->emitUInt64(UInt64(elemSizeInBytes));
